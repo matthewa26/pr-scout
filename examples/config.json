@@ -1,0 +1,34 @@
+{
+  "defaultProfile" : "personal",
+  "profiles" : {
+    "work" : {
+      "directories" : ["~/work"],
+      "githubUser" : "your-work-handle",
+      "scope" : "currentDirectoryRepos",
+      "owners" : ["your-employer-org"],
+      "categories" : [
+        "changes_requested_mine",
+        "awaiting_my_review",
+        "new_commits_since_my_review",
+        "stale_pushed_by_others"
+      ],
+      "ignoreAuthors" : ["dependabot[bot]", "renovate[bot]"]
+    },
+    "personal" : {
+      "directories" : ["~/projects"],
+      "scope" : "currentDirectoryRepos",
+      "categories" : [
+        "changes_requested_mine",
+        "awaiting_my_review"
+      ]
+    },
+    "oss" : {
+      "directories" : ["~/oss"],
+      "scope" : "currentDirectoryRepos",
+      "categories" : [
+        "awaiting_my_review",
+        "new_commits_since_my_review"
+      ]
+    }
+  }
+}
