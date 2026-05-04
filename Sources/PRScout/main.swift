@@ -5,7 +5,7 @@ struct PRScout: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "pr-scout",
         abstract: "Scan GitHub PRs across local repos and surface ones that need your attention.",
-        version: "0.1.2",
+        version: "0.1.3",
         subcommands: [List.self, Init.self],
         defaultSubcommand: List.self
     )

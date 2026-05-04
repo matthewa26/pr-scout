@@ -34,13 +34,36 @@ enum CategoryKind: String, Codable, CaseIterable {
     ]
 }
 
-/// True when the actor is a GitHub bot. Two signals: `is_bot` from the API
-/// (when present) and the conventional `[bot]` suffix on the login (always
-/// applied to bot accounts).
+/// True when the actor is a GitHub bot. Three signals are checked in order:
+///
+/// 1. `is_bot: true` from the GitHub API. Reliable when present, but `gh pr
+///    view --json reviews` returns review-author payloads with only `login`,
+///    so this signal is unavailable for bot reviewers.
+/// 2. The `[bot]` suffix on the login. Standard for GitHub Apps in most
+///    contexts, but again gh's review-author resolver casts to `User` and
+///    drops the suffix — `github-actions[bot]` becomes `github-actions`.
+/// 3. A fallback set of known automation logins covering the common cases
+///    where (1) and (2) both fail.
 func isBotActor(_ actor: GHActor) -> Bool {
     if actor.isBot == true { return true }
-    return actor.login.lowercased().hasSuffix("[bot]")
+    let login = actor.login.lowercased()
+    if login.hasSuffix("[bot]") { return true }
+    return knownBotLogins.contains(login)
 }
+
+let knownBotLogins: Set<String> = [
+    "github-actions",
+    "dependabot",
+    "renovate",
+    "claude",
+    "claude-code",
+    "codecov",
+    "codecov-commenter",
+    "sonarcloud",
+    "sonarqubecloud",
+    "coderabbitai",
+    "copilot-pull-request-reviewer",
+]
 
 struct ClassifiedPR {
     let repo: DiscoveredRepo
