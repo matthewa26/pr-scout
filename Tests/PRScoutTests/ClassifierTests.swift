@@ -61,6 +61,19 @@ final class ClassifierTests: XCTestCase {
         XCTAssertTrue(result.first?.reason.contains("no reviews") == true)
     }
 
+    func test_awaitingMyReview_treatsKnownBotLoginsWithoutSuffixAsNoReview() throws {
+        // Regression: gh's GraphQL `--json reviews` returns the bot's login
+        // without the `[bot]` suffix and without `is_bot`. A login of plain
+        // "github-actions" (or "dependabot", "renovate", etc.) must still be
+        // recognized as a bot via the knownBotLogins fallback.
+        let result = try classify(JSON.pr(
+            author: "bob",
+            reviewDecision: "REVIEW_REQUIRED",
+            reviews: [(login: "github-actions", state: "COMMENTED", at: "2026-05-04T00:00:00Z")]
+        ))
+        XCTAssertEqual(result.first?.category, .awaitingMyReview)
+    }
+
     // MARK: - new_commits_since_my_review
 
     func test_newCommitsSinceMyReview_matchesWhenCommitsLandAfterReview() throws {
