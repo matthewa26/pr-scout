@@ -15,10 +15,18 @@ The catalog of categories is configurable per profile. See [Categories](#categor
 
 ## Install
 
-### From source (any platform with a Swift toolchain)
+### macOS — Homebrew
 
 ```bash
-git clone https://github.com/<you>/pr-scout.git
+brew install matthewa26/tap/pr-scout
+```
+
+This installs both `pr-scout` and its `gh` dependency in one step.
+
+### Any platform — from source
+
+```bash
+git clone https://github.com/matthewa26/pr-scout.git
 cd pr-scout
 swift build -c release
 install .build/release/pr-scout /usr/local/bin/
@@ -26,7 +34,7 @@ install .build/release/pr-scout /usr/local/bin/
 
 ### Prerequisite: GitHub CLI
 
-`pr-scout` shells out to [`gh`](https://cli.github.com). If it's missing, the tool prints platform-specific install instructions on first run (Homebrew on macOS, the official apt repo on Debian/Ubuntu, `dnf` on Fedora, `pacman` on Arch, etc.).
+`pr-scout` shells out to [`gh`](https://cli.github.com). The Homebrew formula installs it automatically. Building from source on Linux: install via the platform's package manager (apt, dnf, pacman, apk) — the tool prints platform-specific install hints on first run if `gh` is missing.
 
 After installing, run `gh auth login` once.
 
