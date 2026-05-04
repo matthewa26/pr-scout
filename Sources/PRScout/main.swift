@@ -127,10 +127,7 @@ extension PRScout {
                 }
             }
 
-            // Filter draft + bots before fetching detail
-            summaries = summaries.filter { _, pr in
-                !pr.isDraft && !ignoreAuthors.contains(pr.author.login.lowercased()) && (pr.author.isBot != true)
-            }
+            summaries = filterPRSummaries(summaries, ignoreAuthors: ignoreAuthors)
 
             // 6. Fetch detail for the surviving PRs and classify
             let categories = prof.categories ?? CategoryKind.defaultCatalog
@@ -187,6 +184,19 @@ extension PRScout {
             try ConfigLoader.save(starter, to: url)
             print("Wrote \(url.path)")
         }
+    }
+}
+
+/// Drop drafts and any PR whose author login is in `ignoreAuthors`. Bots are
+/// only filtered when their login appears in `ignoreAuthors` — `is_bot` flags
+/// from the GitHub API are deliberately ignored so users can opt in to seeing
+/// Dependabot/Renovate/etc. by editing their config.
+func filterPRSummaries(
+    _ summaries: [(DiscoveredRepo, PRSummary)],
+    ignoreAuthors: Set<String>
+) -> [(DiscoveredRepo, PRSummary)] {
+    summaries.filter { _, pr in
+        !pr.isDraft && !ignoreAuthors.contains(pr.author.login.lowercased())
     }
 }
 
