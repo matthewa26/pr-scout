@@ -47,6 +47,20 @@ final class ClassifierTests: XCTestCase {
         XCTAssertNotEqual(result.first?.category, .awaitingMyReview)
     }
 
+    func test_awaitingMyReview_treatsBotReviewsAsNoReview() throws {
+        // Regression: github-actions[bot] (and similar CI bots) leave COMMENTED
+        // reviews on every PR, which previously caused `pr.reviews.isEmpty` to
+        // return false and the PR to silently drop out of the category. A PR
+        // with only bot reviews still has no human reviewer attention.
+        let result = try classify(JSON.pr(
+            author: "bob",
+            reviewDecision: "REVIEW_REQUIRED",
+            reviews: [(login: "github-actions[bot]", state: "COMMENTED", at: "2026-05-04T00:00:00Z")]
+        ))
+        XCTAssertEqual(result.first?.category, .awaitingMyReview)
+        XCTAssertTrue(result.first?.reason.contains("no reviews") == true)
+    }
+
     // MARK: - new_commits_since_my_review
 
     func test_newCommitsSinceMyReview_matchesWhenCommitsLandAfterReview() throws {
