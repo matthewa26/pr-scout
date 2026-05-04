@@ -5,7 +5,7 @@ struct PRScout: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "pr-scout",
         abstract: "Scan GitHub PRs across local repos and surface ones that need your attention.",
-        version: "0.1.1",
+        version: "0.1.2",
         subcommands: [List.self, Init.self],
         defaultSubcommand: List.self
     )
@@ -127,6 +127,7 @@ extension PRScout {
                 }
             }
 
+            summaries = deduplicateSummariesByURL(summaries)
             summaries = filterPRSummaries(summaries, ignoreAuthors: ignoreAuthors)
 
             // 6. Fetch detail for the surviving PRs and classify
@@ -185,6 +186,15 @@ extension PRScout {
             print("Wrote \(url.path)")
         }
     }
+}
+
+/// Collapse summaries that share a canonical URL. Triggered when two local
+/// clones point at different owners that GitHub redirects to the same repo
+/// (e.g. after a repo rename) — `gh pr list` returns the same PRs from each,
+/// and the PR URL is already canonical, so identical URLs are duplicates.
+func deduplicateSummariesByURL(_ summaries: [(DiscoveredRepo, PRSummary)]) -> [(DiscoveredRepo, PRSummary)] {
+    var seen = Set<String>()
+    return summaries.filter { _, pr in seen.insert(pr.url).inserted }
 }
 
 /// Drop drafts and any PR whose author login is in `ignoreAuthors`. Bots are

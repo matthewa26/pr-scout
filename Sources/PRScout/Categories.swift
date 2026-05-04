@@ -34,6 +34,14 @@ enum CategoryKind: String, Codable, CaseIterable {
     ]
 }
 
+/// True when the actor is a GitHub bot. Two signals: `is_bot` from the API
+/// (when present) and the conventional `[bot]` suffix on the login (always
+/// applied to bot accounts).
+func isBotActor(_ actor: GHActor) -> Bool {
+    if actor.isBot == true { return true }
+    return actor.login.lowercased().hasSuffix("[bot]")
+}
+
 struct ClassifiedPR {
     let repo: DiscoveredRepo
     let detail: PRDetail
@@ -93,7 +101,10 @@ enum Classifier {
                 ($0.login != nil) || ($0.name != nil)
             }
             let undecided = pr.reviewDecision == "REVIEW_REQUIRED" || pr.reviewDecision == nil || pr.reviewDecision == ""
-            if pr.reviews.isEmpty, !someoneElseRequested, undecided {
+            // Bot reviews (e.g. github-actions[bot] CI comments) don't count
+            // as "the PR has been reviewed" — humans haven't looked at it yet.
+            let humanReviews = pr.reviews.filter { !isBotActor($0.author) }
+            if humanReviews.isEmpty, !someoneElseRequested, undecided {
                 return "no reviews yet"
             }
             return nil
