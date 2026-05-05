@@ -5,7 +5,39 @@ struct PRScout: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "pr-scout",
         abstract: "Scan GitHub PRs across local repos and surface ones that need your attention.",
-        version: "0.2.0",
+        usage: """
+        pr-scout [list] [<options>]
+        pr-scout config [--path <path>]
+        pr-scout init [--path <path>] [--force]
+        """,
+        discussion: """
+        pr-scout walks the directories registered in your active profile, finds local Git
+        clones via their `.git/config` origin URLs, queries open PRs from each via the GitHub
+        CLI (`gh`), and classifies them into a small catalog of categories targeting common
+        review attention patterns:
+
+          • Your PRs that have changes requested
+          • Others' PRs awaiting your review
+          • Others' PRs that have new commits since your last review
+          • Your PRs where someone else pushed and you haven't reviewed since
+          • Your PRs that are approved and ready to merge
+
+        Profile-based config auto-resolves from the current working directory: any path
+        beneath a registered directory uses that profile (longest prefix wins). Each profile
+        can scope to specific GitHub owners, customize the category catalog, and override
+        the GitHub user identity.
+
+        First-time setup is interactive — run `pr-scout config`. For non-interactive
+        scaffolding, use `pr-scout init`.
+
+        Authentication is delegated to `gh`. Run `gh auth login` once and pr-scout will
+        reuse those credentials.
+
+        SEE ALSO
+          The pr-scout(1) man page, https://github.com/matthewa26/pr-scout/tree/main/docs,
+          and `pr-scout <subcommand> --help` for per-subcommand options.
+        """,
+        version: "0.2.1",
         subcommands: [List.self, ConfigCommand.self, Init.self],
         defaultSubcommand: List.self
     )
@@ -15,22 +47,73 @@ extension PRScout {
     struct List: ParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "list",
-            abstract: "List actionable PRs in the current directory's repos."
+            abstract: "List actionable PRs in the current directory's repos.",
+            discussion: """
+            Default subcommand — `pr-scout` with no subcommand runs `list`.
+
+            The active profile is resolved by matching the current working directory (or
+            --directory) against each profile's `directories` prefix; the longest matching
+            prefix wins. With no match, falls back to `defaultProfile`. With no config at
+            all, scans the current directory.
+
+            For each registered directory, repositories are discovered via `.git/config`
+            origin URLs. The viewer's GitHub login defaults to `gh api user`; override
+            with --user or in profile config. PRs are classified into the categories
+            enabled in the profile (see the `categories` doc for the full catalog).
+
+            Output formats:
+              json   — stable schema for scripts; pipe through jq.
+              table  — aligned ASCII columns; good for at-a-glance scanning.
+              list   — plain bullets, no ANSI; safe for piping or logs.
+              pretty — ANSI colors; falls back to `list` when stdout isn't a TTY.
+
+            Use --verbose to see the full scan trace on stderr.
+            """
         )
 
-        @Option(name: [.short, .long], help: "Profile name to use (overrides directory-based resolution).")
+        @Option(
+            name: [.short, .long],
+            help: ArgumentHelp(
+                "Profile name to use (overrides directory-based resolution).",
+                discussion: "Useful when running from outside any registered directory but you want a specific profile applied — e.g. CI scripts or scheduled jobs."
+            )
+        )
         var profile: String?
 
-        @Option(name: [.short, .long], help: "Directory to scan (defaults to CWD).")
+        @Option(
+            name: [.short, .long],
+            help: ArgumentHelp(
+                "Directory to scan (defaults to CWD).",
+                discussion: "Profile auto-resolution still applies — the supplied path is matched against each profile's `directories` prefix."
+            )
+        )
         var directory: String?
 
-        @Option(name: [.long], help: "Override the GitHub user (defaults to `gh api user`).")
+        @Option(
+            name: [.long],
+            help: ArgumentHelp(
+                "Override the GitHub user (defaults to `gh api user`).",
+                discussion: "Useful for inspecting another reviewer's queue, running against a different GitHub account than gh is logged into, or impersonation in scripts."
+            )
+        )
         var user: String?
 
-        @Option(name: [.long], help: "Override config file path.")
+        @Option(
+            name: [.long],
+            help: ArgumentHelp(
+                "Override config file path.",
+                discussion: "Defaults to ~/.config/pr-scout/config.json (or $XDG_CONFIG_HOME/pr-scout/config.json if set)."
+            )
+        )
         var config: String?
 
-        @Option(name: [.short, .long], help: "Output format: json | table | list | pretty.")
+        @Option(
+            name: [.short, .long],
+            help: ArgumentHelp(
+                "Output format: json | table | list | pretty.",
+                discussion: "`pretty` is the default and auto-falls-back to `list` when stdout isn't a TTY, so piping always produces clean output."
+            )
+        )
         var format: OutputFormat = .pretty
 
         @Flag(name: .long, help: "Verbose progress output to stderr.")
@@ -153,10 +236,25 @@ extension PRScout {
     struct Init: ParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "init",
-            abstract: "Write a starter config file."
+            abstract: "Write a starter config file (non-interactive).",
+            discussion: """
+            Writes a single-profile starter config to ~/.config/pr-scout/config.json. The
+            generated profile is named `personal`, scans `~/projects`, enables the default
+            category catalog, and lists the standard bot logins in `ignoreAuthors`.
+
+            For interactive setup that walks through profile creation step-by-step
+            (with auto-detection of directories, GitHub user, and owners), use
+            `pr-scout config` instead.
+            """
         )
 
-        @Option(name: [.long], help: "Output path (defaults to ~/.config/pr-scout/config.json).")
+        @Option(
+            name: [.long],
+            help: ArgumentHelp(
+                "Output path (defaults to ~/.config/pr-scout/config.json).",
+                discussion: "Parent directory is created if it doesn't exist. Path is expanded for ~ and resolved against the current process's working directory."
+            )
+        )
         var path: String?
 
         @Flag(name: .long, help: "Overwrite an existing config.")
@@ -190,10 +288,34 @@ extension PRScout {
     struct ConfigCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "config",
-            abstract: "Walk through interactive setup to build a config from scratch."
+            abstract: "Walk through interactive setup to build a config from scratch.",
+            discussion: """
+            Walks through profile creation step-by-step:
+
+              1. Profile name (validated for non-empty + uniqueness).
+              2. Directories the profile auto-resolves from (with sensible defaults
+                 per profile name — `work` → ~/work, `personal` → ~/projects, etc.).
+              3. GitHub user — auto-detected via `gh api user`, with confirm/override.
+              4. Owners allowlist — auto-suggested from the GitHub owners of local
+                 clones found in the chosen directories.
+              5. Categories to enable — multi-select from the catalog with the
+                 default catalog pre-checked.
+              6. Add another profile? Repeat from step 1, or finish.
+              7. (When >1 profile) which profile is the default?
+              8. JSON preview, then confirm before save.
+
+            If a config already exists at the target path, the wizard offers
+            replace-or-cancel up front — it doesn't merge or edit in place.
+            """
         )
 
-        @Option(name: [.long], help: "Output path (defaults to ~/.config/pr-scout/config.json).")
+        @Option(
+            name: [.long],
+            help: ArgumentHelp(
+                "Output path (defaults to ~/.config/pr-scout/config.json).",
+                discussion: "Useful for testing alternate configs or scripting setup against a known location."
+            )
+        )
         var path: String?
 
         func run() throws {
