@@ -65,7 +65,21 @@ When invoked with no flags, `pr-scout` resolves the profile by matching the curr
 
 ## Configuration
 
-`pr-scout` looks for `~/.config/pr-scout/config.json` (or `$XDG_CONFIG_HOME/pr-scout/config.json` if set). Run `pr-scout init` to write a starter file.
+`pr-scout` looks for `~/.config/pr-scout/config.json` (or `$XDG_CONFIG_HOME/pr-scout/config.json` if set).
+
+The fastest way to get a working config is the interactive wizard:
+
+```bash
+pr-scout config
+```
+
+It walks you through profile name → directories → GitHub user (auto-detected) → owners allowlist (auto-suggested from local clones) → category selection → preview → save. Multi-profile support; runs again until you decline.
+
+For non-interactive scaffolding (e.g. provisioning scripts):
+
+```bash
+pr-scout init
+```
 
 ### Schema
 
@@ -120,16 +134,90 @@ When invoked with no flags, `pr-scout` resolves the profile by matching the curr
 | `stale_pushed_by_others`        | Your PRs where the latest commit is by someone else and you haven't responded.   |
 | `mergeable_approved_mine`       | Your PRs that are approved and ready to merge.                                   |
 
+## Cookbook
+
+Real-world recipes you can lift directly.
+
+### Periodic check via tmux status bar
+
+Run pr-scout every 5 minutes and stash the count:
+
+```bash
+# in your tmux.conf
+set -g status-right '#(pr-scout --format json | jq length) PRs'
+```
+
+### Open every match in the browser
+
+```bash
+pr-scout --format json | jq -r '.[].url' | xargs open
+```
+
+### Block CI on a clean queue (paranoia mode)
+
+```bash
+test "$(pr-scout --format json | jq length)" = "0" || exit 1
+```
+
+### Slack post on stale collaborations
+
+A scheduled cron that pings you if anyone pushed to your PRs:
+
+```bash
+pr-scout --format json \
+  | jq -r '.[] | select(.category == "stale_pushed_by_others")
+                | "\(.repo)#\(.number) — \(.reason)"' \
+  | curl -X POST -H 'Content-type: application/json' \
+      --data "$(jq -Rs '{text: .}')" "$SLACK_WEBHOOK"
+```
+
+### Inspect a teammate's queue
+
+`--user` overrides the viewer login. Useful when triaging on someone's behalf or when handing off review responsibility:
+
+```bash
+pr-scout --user some-teammate
+```
+
+### Different config per directory
+
+Profiles auto-resolve from the working directory. Drop into the right tree and pr-scout picks the matching profile automatically — no flags needed.
+
+### Pipe through fzf for an interactive picker
+
+```bash
+pr-scout --format list | fzf | awk '{print $2}' | xargs gh pr view --web
+```
+
+## Offline documentation
+
+After installing via Homebrew:
+
+```bash
+man pr-scout                # full manual
+pr-scout --help             # top-level usage
+pr-scout list --help        # per-subcommand help
+tldr pr-scout               # quick reference (when tldr-pages adds it; meanwhile see docs/pr-scout.tldr.md)
+```
+
+Long-form prose docs live under [`docs/`](docs/) in this repo.
+
 ## Development
 
 ```bash
-git clone https://github.com/<you>/pr-scout.git
+git clone https://github.com/matthewa26/pr-scout.git
 cd pr-scout
 ./scripts/setup-dev.sh   # installs the pre-commit hook + verifies the build
-swift test               # 33 tests, runs in <1s
+swift test               # 60+ tests, runs in <1s
 ```
 
 The pre-commit hook runs `swift test` and blocks the commit on failure. CI runs the same suite on every PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer workflow.
+
+To regenerate the man page after editing help text in `Sources/PRScout/main.swift`:
+
+```bash
+./scripts/generate-man.sh
+```
 
 ## Why Swift
 
