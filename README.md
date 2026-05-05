@@ -200,7 +200,11 @@ pr-scout list --help        # per-subcommand help
 tldr pr-scout               # quick reference (when tldr-pages adds it; meanwhile see docs/pr-scout.tldr.md)
 ```
 
-Long-form prose docs live under [`docs/`](docs/) in this repo.
+Long-form prose docs live under [`docs/`](docs/) in this repo:
+
+- [Installation](docs/installation.md) · [Configuration](docs/configuration.md) · [Categories](docs/categories.md) · [Output formats](docs/output-formats.md)
+- [Cookbook](docs/cookbook.md) · [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md)
+- [Index](docs/index.md) — start here if you're new
 
 ## Development
 
