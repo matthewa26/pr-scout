@@ -5,8 +5,8 @@ struct PRScout: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "pr-scout",
         abstract: "Scan GitHub PRs across local repos and surface ones that need your attention.",
-        version: "0.1.3",
-        subcommands: [List.self, Init.self],
+        version: "0.2.0",
+        subcommands: [List.self, ConfigCommand.self, Init.self],
         defaultSubcommand: List.self
     )
 }
@@ -184,6 +184,23 @@ extension PRScout {
             )
             try ConfigLoader.save(starter, to: url)
             print("Wrote \(url.path)")
+        }
+    }
+
+    struct ConfigCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "config",
+            abstract: "Walk through interactive setup to build a config from scratch."
+        )
+
+        @Option(name: [.long], help: "Output path (defaults to ~/.config/pr-scout/config.json).")
+        var path: String?
+
+        func run() throws {
+            let url = path.map { URL(fileURLWithPath: ConfigLoader.expandTilde($0)) }
+                ?? ConfigLoader.defaultPath
+            let wizard = ConfigWizard(configPath: url)
+            try wizard.run()
         }
     }
 }
